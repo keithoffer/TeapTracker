@@ -449,12 +449,13 @@ class MainWindow(QMainWindow):
             self.ui.tabWidgetMain.setCurrentIndex(0)
 
     def save_teap_settings(self):
-        qdate = self.ui.dateEditProgramStart.date()
-        self.data['profile_data']['start_date'] = datetime.strftime(datetime(qdate.year(), qdate.month(), qdate.day()),
-                                                                    '%Y-%m-%d %H:%M:%S')
-        self.data['profile_data']['program_length'] = self.ui.comboBoxTEAPLength.currentText()
+        if self.data is not None:
+            qdate = self.ui.dateEditProgramStart.date()
+            self.data['profile_data']['start_date'] = datetime.strftime(datetime(qdate.year(), qdate.month(), qdate.day()),
+                                                                        '%Y-%m-%d %H:%M:%S')
+            self.data['profile_data']['program_length'] = self.ui.comboBoxTEAPLength.currentText()
 
-        self.save_data()
+            self.save_data()
 
     def new_data_loaded(self):
         # Called whenever new data is loaded to update the state of the application, e.g. models, plots etc.

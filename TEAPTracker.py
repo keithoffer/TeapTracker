@@ -772,7 +772,9 @@ class MainWindow(QMainWindow):
             for module in modules:
                 total_available_points = competency_reference_data[module]['total_points']
                 uploaded_points = self.tracking_df[(self.tracking_df['name'].str.startswith(module)) & (
-                            self.tracking_df['submission_status'] != 'No attempt')]['max_uploaded_score'].sum()
+                        (self.tracking_df['submission_status'] != 'No attempt')
+                        | (self.tracking_df['grading_status'] == 'Graded')
+                        )]['max_uploaded_score'].sum()
                 graded_points = self.tracking_df[(self.tracking_df['name'].str.startswith(module)) & (
                             self.tracking_df['grading_status'] == 'Graded')]['weighted_score'].sum()
                 if relative_plot:

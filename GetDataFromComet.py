@@ -166,10 +166,15 @@ class GetDataFromCometThread(QThread):
                         grade_date = datetime.strptime(time_str, '%A, %d %B %Y, %I:%M %p')
                     assessor = lines[2].text.strip().split('\n')[1]
                     competency['grade_date'] = grade_date
+
                     # Catch competencies signed off without evidence
                     if grade_date is not None and competency['last_modify_date'] is not None and grade_date < \
                             competency['last_modify_date']:
                         competency['last_modify_date'] = grade_date
+                    if grade_date is not None and competency['last_modify_date'] is None:
+                        competency['last_modify_date'] = grade_date
+                        competency['submission_status'] = 'Submitted'
+
                     competency['assessor'] = assessor
                 except IndexError:
                     competency['grade_date'] = None

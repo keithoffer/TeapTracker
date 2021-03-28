@@ -253,10 +253,16 @@ class Ui_MainWindow(object):
         self.menubar = QtWidgets.QMenuBar(MainWindow)
         self.menubar.setGeometry(QtCore.QRect(0, 0, 1316, 30))
         self.menubar.setObjectName("menubar")
+        self.menuFile = QtWidgets.QMenu(self.menubar)
+        self.menuFile.setObjectName("menuFile")
         MainWindow.setMenuBar(self.menubar)
         self.statusbar = QtWidgets.QStatusBar(MainWindow)
         self.statusbar.setObjectName("statusbar")
         MainWindow.setStatusBar(self.statusbar)
+        self.actionExport_official_spreadsheet = QtWidgets.QAction(MainWindow)
+        self.actionExport_official_spreadsheet.setObjectName("actionExport_official_spreadsheet")
+        self.menuFile.addAction(self.actionExport_official_spreadsheet)
+        self.menubar.addAction(self.menuFile.menuAction())
 
         self.retranslateUi(MainWindow)
         self.tabWidgetMain.setCurrentIndex(0)
@@ -302,4 +308,6 @@ class Ui_MainWindow(object):
         self.label_5.setText(_translate("MainWindow", "Load previously saved data"))
         self.pushButtonLoadSelectedCachedFile.setText(_translate("MainWindow", "Load"))
         self.tabWidgetMain.setTabText(self.tabWidgetMain.indexOf(self.tab_7), _translate("MainWindow", "Get data"))
+        self.menuFile.setTitle(_translate("MainWindow", "File"))
+        self.actionExport_official_spreadsheet.setText(_translate("MainWindow", "Export official spreadsheet"))
 from widgets.MplWidget import MplWidget

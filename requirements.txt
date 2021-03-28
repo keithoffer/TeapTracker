@@ -31,3 +31,4 @@ tld==0.12.3
 typing-extensions==3.7.4.3
 urllib3==1.26.2
 zipp==3.4.0
+openpyxl==3.0.7

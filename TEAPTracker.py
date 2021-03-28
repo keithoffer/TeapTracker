@@ -9,7 +9,7 @@ from pathlib import Path
 from mpldatacursor import datacursor
 
 from PyQt5.QtWidgets import QHeaderView, QAbstractItemView, QMessageBox, QMainWindow, QApplication, QDialog, \
-    QVBoxLayout, QLineEdit, QPushButton, QLabel, QTextEdit
+    QVBoxLayout, QLineEdit, QPushButton, QLabel, QTextEdit, QFileDialog
 from PyQt5.QtGui import QStandardItemModel, QStandardItem
 from PyQt5.QtCore import QDate, QSortFilterProxyModel, QSettings
 
@@ -17,11 +17,12 @@ import pandas as pd
 import numpy as np
 import pypac
 import requests
+from openpyxl import load_workbook
 from requests.auth import HTTPProxyAuth
 from datetime import datetime, timedelta
 from pandas.plotting import register_matplotlib_converters
 from matplotlib.patches import Rectangle
-from teap_data import teap_required_points, teap_weights, teap_categories
+from teap_data import teap_required_points, teap_weights, teap_categories, spreadsheet_cells
 from GetDataFromComet import GetDataFromCometWindow
 from ui.teap_report_main import Ui_MainWindow
 
@@ -188,6 +189,8 @@ class MainWindow(QMainWindow):
         self.ui.MplWidgetCategoryOverview.canvas.mpl_connect('button_press_event', self.update_category_plan)
         self.ui.dateEditPlanStart.dateChanged.connect(lambda: self.updated_plan_dates())
         self.ui.dateEditPlanEnd.dateChanged.connect(lambda: self.updated_plan_dates())
+
+        self.ui.actionExport_official_spreadsheet.triggered.connect(self.export_official_spreadsheet)
 
         self.show()
 
@@ -758,6 +761,27 @@ class MainWindow(QMainWindow):
             return self.training_plan['notes'][comp]
         else:
             return None
+
+    def export_official_spreadsheet(self):
+        if self.data is not None:
+            filepath = QFileDialog.getSaveFileName(self, 'Save spreadsheet', 'CTG v3.6 Progression Monitor Tool.xlsx', '(*.xlsx)')[0]
+            if filepath != '':
+                if not filepath.endswith('.xlsx'):
+                    filepath += '.xlsx'
+
+                workbook = load_workbook('resources/CTG v3.6 Progression Monitor Tool.xlsx')
+                worksheet = workbook.active
+                worksheet[spreadsheet_cells['name']] = self.data['profile_data']['name']
+                worksheet[spreadsheet_cells['program_length']] = int(self.data['profile_data']['program_length'])
+                worksheet[spreadsheet_cells['start_date']] = datetime.strptime(self.data['profile_data']['start_date'], '%Y-%m-%d %H:%M:%S')
+                worksheet[spreadsheet_cells['todays_date']] = datetime.now()
+                worksheet[spreadsheet_cells['intended_brachy_level']] = 'Level 2'
+
+                for competency_start,cell in spreadsheet_cells['competencies'].items():
+                    points = self.tracking_df[(self.tracking_df['cat'] == competency_start)]['score'].mean()
+                    worksheet[cell] = points
+
+                workbook.save(filepath)
 
     def update_overview_plot(self):
         if self.data is not None:

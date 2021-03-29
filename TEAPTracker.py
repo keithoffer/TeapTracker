@@ -9,7 +9,7 @@ from pathlib import Path
 from mpldatacursor import datacursor
 
 from PyQt5.QtWidgets import QHeaderView, QAbstractItemView, QMessageBox, QMainWindow, QApplication, QDialog, \
-    QVBoxLayout, QLineEdit, QPushButton, QLabel, QTextEdit, QFileDialog
+    QVBoxLayout, QLineEdit, QPushButton, QLabel, QTextEdit, QFileDialog, QComboBox
 from PyQt5.QtGui import QStandardItemModel, QStandardItem
 from PyQt5.QtCore import QDate, QSortFilterProxyModel, QSettings
 
@@ -163,20 +163,30 @@ class MainWindow(QMainWindow):
         self.ui.checkBoxShowExtrapolation.clicked.connect(lambda: self.save_extrapolation_settings())
         self.ui.spinBoxMonthsToExtrapolate.valueChanged.connect(lambda: self.save_extrapolation_settings())
 
+        self.show()
+
         self.search_for_cached_data()
         # If there is only one cached file, load it
         if self.ui.comboBoxCachedData.count() == 1:
             self.ui.comboBoxCachedData.setCurrentIndex(
                 0)  # This might be unneeded, but I feel it's safer to leave it in
-            filepath = self.ui.comboBoxCachedData.currentData()
-            if filepath is not None:
-                with open(filepath, 'r') as f:
-                    self.data = json.load(f)
-                    if 'training_plan' in self.data:
-                        self.training_plan = self.data['training_plan']
-                        if not 'notes' in self.training_plan:
-                            self.training_plan['notes'] = {}
-                    self.new_data_loaded()
+            self.load_data_from_filepath(self.ui.comboBoxCachedData.currentData())
+        elif self.ui.comboBoxCachedData.count() > 1:
+            json_files = glob.glob(f'{cache_location}/*.json')
+            registrar_list = {}
+            for file in json_files:
+                try:
+                    with open(file, 'r') as f:
+                        data = json.load(f)
+                        user_name = data['profile_data']['name']
+                        registrar_list[user_name] = file
+                except:
+                    pass
+            load_registrar_dialog = LoadDataDialog(registrar_list=registrar_list)
+            if load_registrar_dialog.exec() == QDialog.Accepted:
+                self.load_data_from_filepath(load_registrar_dialog.load_filepath)
+            else:
+                pass
 
         # Need to connect these afterwards to make sure they don't overwrite the loaded settings
         self.ui.comboBoxGradingFilter.currentTextChanged.connect(self.update_score_filters)
@@ -192,7 +202,16 @@ class MainWindow(QMainWindow):
 
         self.ui.actionExport_official_spreadsheet.triggered.connect(self.export_official_spreadsheet)
 
-        self.show()
+
+    def load_data_from_filepath(self,filepath : str):
+        if filepath is not None:
+            with open(filepath, 'r') as f:
+                self.data = json.load(f)
+                if 'training_plan' in self.data:
+                    self.training_plan = self.data['training_plan']
+                    if not 'notes' in self.training_plan:
+                        self.training_plan['notes'] = {}
+                self.new_data_loaded()
 
     def save_extrapolation_settings(self):
         self.settings.setValue('Appearance/show_extrapolation_in_tracking_plot',
@@ -414,13 +433,8 @@ class MainWindow(QMainWindow):
                 self.data['training_plan'] = self.training_plan
                 json.dump(self.data, f, default=str, indent=4)
 
-            with open(f'{cache_location}/{user_id}.json', 'r') as f:
-                # Loading the data back ensures consistency of what we've saved, both data and types
-                self.data = json.load(f)
-                if 'training_plan' in self.data:
-                    self.training_plan = self.data['training_plan']
-                    if not 'notes' in self.training_plan:
-                        self.training_plan['notes'] = {}
+            # Loading the data back ensures consistency of what we've saved, both data and types
+            self.load_data_from_filepath(f'{cache_location}/{user_id}.json')
 
     def get_new_data_from_comet(self):
         session = self.make_session()
@@ -884,6 +898,30 @@ class UpdateNoteDialog(QDialog):
 
         self.accept()
 
+class LoadDataDialog(QDialog):
+    def __init__(self, parent=None, registrar_list: dict = None):
+        super(LoadDataDialog, self).__init__(parent)
+        self.setWindowTitle('Load data')
+        self.labelExplanation = QLabel('Please choose a registrar to load their data')
+        self.comboBoxRegistrars = QComboBox(self)
+        for registrar_name, filepath in registrar_list.items():
+            self.comboBoxRegistrars.addItem(registrar_name,filepath)
+        self.pushButtonAccept = QPushButton('OK', self)
+        self.pushButtonAccept.clicked.connect(self.accepting)
+        self.pushButtonCancel = QPushButton('Cancel', self)
+        self.pushButtonCancel.clicked.connect(self.reject)
+        layout = QVBoxLayout(self)
+        layout.addWidget(self.labelExplanation)
+        layout.addWidget(self.comboBoxRegistrars)
+        layout.addWidget(self.pushButtonAccept)
+        layout.addWidget(self.pushButtonCancel)
+
+        self.load_filepath = None
+
+    def accepting(self):
+        self.load_filepath = self.comboBoxRegistrars.currentData()
+
+        self.accept()
 
 class MultiColumnProxyModel(QSortFilterProxyModel):
     """

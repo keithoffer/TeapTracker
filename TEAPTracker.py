@@ -166,11 +166,21 @@ class MainWindow(QMainWindow):
         self.show()
 
         self.search_for_cached_data()
+        # If there isn't any cached data, pop up a dialog to help the user download their data
+        if self.ui.comboBoxCachedData.count() == 0:
+            download_dialog = InitialDownloadDialog()
+            if download_dialog.exec() == QDialog.Accepted:
+                self.getCometDataWindow = GetDataFromCometWindow(session=download_dialog.session)
+                if self.getCometDataWindow.exec():
+                    self.handle_new_data_from_gui()
+            else:
+                pass
         # If there is only one cached file, load it
-        if self.ui.comboBoxCachedData.count() == 1:
+        elif self.ui.comboBoxCachedData.count() == 1:
             self.ui.comboBoxCachedData.setCurrentIndex(
                 0)  # This might be unneeded, but I feel it's safer to leave it in
             self.load_data_from_filepath(self.ui.comboBoxCachedData.currentData())
+        # If there is more than 1, show a dialog to allow the user to choose
         elif self.ui.comboBoxCachedData.count() > 1:
             json_files = glob.glob(f'{cache_location}/*.json')
             registrar_list = {}
@@ -340,88 +350,6 @@ class MainWindow(QMainWindow):
                        QStandardItem(str(competency['grade_date']))]
             self.assessed_competency_model.appendRow(new_row)
 
-    def make_session(self):
-        # Sets up a requests session object to store all the cookies for authentication
-        # Note that pypac is used here to try and autodetect proxy settings, the session object is essentially
-        # a requests session
-        s = pypac.PACSession()
-
-        if self.ui.lineEditCometUsername.text() == '' or self.ui.lineEditCometPassword.text() == '':
-            msg_box = QMessageBox()
-            msg_box.setWindowTitle('Error')
-            msg_box.setText("Neither username or password can be blank")
-            msg_box.setIcon(QMessageBox.Critical)
-            msg_box.exec()
-            return None
-
-        headers = {
-            'Accept': '*/*',
-            'Accept-Language': 'en-US,en;q=0.5',
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'Origin': 'https://www.acpsem.org.au',
-            'Connection': 'keep-alive',
-            'Referer': 'https://www.acpsem.org.au/Home',
-            'Upgrade-Insecure-Requests': '1',
-        }
-
-        login_url = 'https://cometlms.medcast.com.au/auth/association_online/force_login.php'
-        login_credentials = f'login={self.ui.lineEditCometUsername.text()}&password={self.ui.lineEditCometPassword.text()}'
-
-        try:
-            response = s.post(
-                'https://www.acpsem.org.au/app/ws2/objects/sset-all.r?Mode=InLine&Action=GotoPage%7C35&TenID=ACPSEM',
-                headers=headers, data=login_credentials, allow_redirects=False)
-
-        except requests.exceptions.ProxyError as e:
-            if e.args[0].reason.args[1].args[0] == 'Tunnel connection failed: 407 Proxy Authentication Required':
-                loginDialog = ProxyLoginDialog()
-                if loginDialog.exec() == QDialog.Accepted:
-                    s.proxy_auth = HTTPProxyAuth(loginDialog.username, loginDialog.password)
-                    s.get(login_url)
-                else:
-                    msg_box = QMessageBox()
-                    msg_box.setWindowTitle('Error')
-                    msg_box.setText(f"Proxy error : {e}")
-                    msg_box.setIcon(QMessageBox.Critical)
-                    msg_box.exec()
-                    return None
-            else:
-                msg_box = QMessageBox()
-                msg_box.setWindowTitle('Error')
-                msg_box.setText(f"Proxy error : {e}")
-                msg_box.setIcon(QMessageBox.Critical)
-                msg_box.exec()
-                return None
-        except requests.exceptions.ConnectionError as e:
-            msg_box = QMessageBox()
-            msg_box.setWindowTitle('Error')
-            msg_box.setText(
-                f"Connection error : {e}. This probably means either the website is down, or you have no internet connection. Ensure you can load both the ACPSEM website and COMET in a web browser and then try again.")
-            msg_box.setIcon(QMessageBox.Critical)
-            msg_box.exec()
-            return None
-
-        try:
-            regex = r'key=(.*?)&'
-            key = re.findall(regex, response.headers['Location'])
-            new_url = f'https://cometlms.medcast.com.au//auth//userkey//login.php?key={key}&wantsurl=https://www.acpsem.org.au/ccms.r?PageId=35&tenid=ACPSEM'
-            resp = s.get(new_url)
-            if resp.status_code != 200 or resp.url != 'https://www.acpsem.org.au/ccms.r?PageId=35':
-                msg_box = QMessageBox()
-                msg_box.setWindowTitle('Error')
-                msg_box.setText("There was an error logging in to COMET. Are you sure you have the right username set?")
-                msg_box.setIcon(QMessageBox.Critical)
-                msg_box.exec()
-                return None
-        except:
-            msg_box = QMessageBox()
-            msg_box.setWindowTitle('Error')
-            msg_box.setText("There was an error connecting to COMET. Are you sure you have an internet connection?")
-            msg_box.setIcon(QMessageBox.Critical)
-            msg_box.exec()
-            return None
-        return s
-
     def save_data(self):
         if self.data is not None:
             user_id = self.data['profile_data']['user_id']
@@ -437,33 +365,44 @@ class MainWindow(QMainWindow):
             self.load_data_from_filepath(f'{cache_location}/{user_id}.json')
 
     def get_new_data_from_comet(self):
-        session = self.make_session()
+        if self.ui.lineEditCometUsername.text() == '' or self.ui.lineEditCometPassword.text() == '':
+            msg_box = QMessageBox()
+            msg_box.setWindowTitle('Error')
+            msg_box.setText("Neither username or password can be blank")
+            msg_box.setIcon(QMessageBox.Critical)
+            msg_box.exec()
+            return None
+        session = make_session(username=self.ui.lineEditCometUsername.text(),
+                                    password=self.ui.lineEditCometPassword.text())
         if session is None:
             return
         self.getCometDataWindow = GetDataFromCometWindow(session)
 
         if self.getCometDataWindow.exec():
-            if self.getCometDataWindow.competency_data is not None:
-                new_data = self.getCometDataWindow.competency_data
-                # We'll still keep the old start date and length, as the website is probably wrong and the user manually
-                # fixed it
-                if self.data is not None:
-                    new_data['profile_data']['start_date'] = self.data['profile_data']['start_date']
-                    new_data['profile_data']['program_length'] = self.data['profile_data']['program_length']
-                self.data = new_data
-                self.save_data()
-                self.getCometDataWindow = None
-                self.new_data_loaded()
-            else:
-                return
+            self.handle_new_data_from_gui()
 
-            msg_box = QMessageBox()
-            msg_box.setWindowTitle('Success')
-            msg_box.setText("Data downloaded successfully")
-            msg_box.setIcon(QMessageBox.Information)
-            msg_box.exec()
+    def handle_new_data_from_gui(self):
+        if self.getCometDataWindow.competency_data is not None:
+            new_data = self.getCometDataWindow.competency_data
+            # We'll still keep the old start date and length, as the website is probably wrong and the user manually
+            # fixed it
+            if self.data is not None:
+                new_data['profile_data']['start_date'] = self.data['profile_data']['start_date']
+                new_data['profile_data']['program_length'] = self.data['profile_data']['program_length']
+            self.data = new_data
+            self.save_data()
+            self.getCometDataWindow = None
+            self.new_data_loaded()
+        else:
+            return
 
-            self.ui.tabWidgetMain.setCurrentIndex(0)
+        msg_box = QMessageBox()
+        msg_box.setWindowTitle('Success')
+        msg_box.setText("Data downloaded successfully")
+        msg_box.setIcon(QMessageBox.Information)
+        msg_box.exec()
+
+        self.ui.tabWidgetMain.setCurrentIndex(0)
 
     def save_teap_settings(self):
         if self.data is not None:
@@ -923,6 +862,45 @@ class LoadDataDialog(QDialog):
 
         self.accept()
 
+class InitialDownloadDialog(QDialog):
+    def __init__(self, parent=None, registrar_list: dict = None):
+        super(InitialDownloadDialog, self).__init__(parent)
+        self.setWindowTitle('Download data')
+        self.labelExplanation = QLabel('Please login with your COMET details')
+        self.lineEditUsername = QLineEdit()
+        self.lineEditPassword = QLineEdit()
+        self.lineEditPassword.setEchoMode(QLineEdit.Password)
+
+        self.pushButtonAccept = QPushButton('OK', self)
+        self.pushButtonAccept.clicked.connect(self.accepting)
+        self.pushButtonCancel = QPushButton('Cancel', self)
+        self.pushButtonCancel.clicked.connect(self.reject)
+
+        layout = QVBoxLayout(self)
+        layout.addWidget(self.labelExplanation)
+        layout.addWidget(self.lineEditUsername)
+        layout.addWidget(self.lineEditPassword)
+        layout.addWidget(self.pushButtonAccept)
+        layout.addWidget(self.pushButtonCancel)
+
+        self.session = None
+
+    def accepting(self):
+        if self.lineEditUsername.text() == '' or self.lineEditPassword.text() == '':
+            msg_box = QMessageBox()
+            msg_box.setWindowTitle('Error')
+            msg_box.setText("Neither username or password can be blank")
+            msg_box.setIcon(QMessageBox.Critical)
+            msg_box.exec()
+            return None
+
+        self.session = make_session(username=self.lineEditUsername.text(),
+                                    password=self.lineEditPassword.text())
+        if self.session is None:
+            return
+        else:
+            self.accept()
+
 class MultiColumnProxyModel(QSortFilterProxyModel):
     """
     A subclass of QSortFilterProxyModel that does multi column filtering
@@ -950,6 +928,80 @@ class MultiColumnProxyModel(QSortFilterProxyModel):
                 or self._grading_status_filter.lower() == 'all') \
                and (self._submission_status_filter.lower() == submission_status.lower()
                     or self._submission_status_filter.lower() == 'all')
+
+def make_session(username:str = None,password:str=None):
+    # Sets up a requests session object to store all the cookies for authentication
+    # Note that pypac is used here to try and autodetect proxy settings, the session object is essentially
+    # a requests session
+    s = pypac.PACSession()
+
+    headers = {
+        'Accept': '*/*',
+        'Accept-Language': 'en-US,en;q=0.5',
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Origin': 'https://www.acpsem.org.au',
+        'Connection': 'keep-alive',
+        'Referer': 'https://www.acpsem.org.au/Home',
+        'Upgrade-Insecure-Requests': '1',
+    }
+
+    login_url = 'https://cometlms.medcast.com.au/auth/association_online/force_login.php'
+    login_credentials = f'login={username}&password={password}'
+
+    try:
+        response = s.post(
+            'https://www.acpsem.org.au/app/ws2/objects/sset-all.r?Mode=InLine&Action=GotoPage%7C35&TenID=ACPSEM',
+            headers=headers, data=login_credentials, allow_redirects=False)
+
+    except requests.exceptions.ProxyError as e:
+        if e.args[0].reason.args[1].args[0] == 'Tunnel connection failed: 407 Proxy Authentication Required':
+            loginDialog = ProxyLoginDialog()
+            if loginDialog.exec() == QDialog.Accepted:
+                s.proxy_auth = HTTPProxyAuth(loginDialog.username, loginDialog.password)
+                s.get(login_url)
+            else:
+                msg_box = QMessageBox()
+                msg_box.setWindowTitle('Error')
+                msg_box.setText(f"Proxy error : {e}")
+                msg_box.setIcon(QMessageBox.Critical)
+                msg_box.exec()
+                return None
+        else:
+            msg_box = QMessageBox()
+            msg_box.setWindowTitle('Error')
+            msg_box.setText(f"Proxy error : {e}")
+            msg_box.setIcon(QMessageBox.Critical)
+            msg_box.exec()
+            return None
+    except requests.exceptions.ConnectionError as e:
+        msg_box = QMessageBox()
+        msg_box.setWindowTitle('Error')
+        msg_box.setText(
+            f"Connection error : {e}. This probably means either the website is down, or you have no internet connection. Ensure you can load both the ACPSEM website and COMET in a web browser and then try again.")
+        msg_box.setIcon(QMessageBox.Critical)
+        msg_box.exec()
+        return None
+
+    try:
+        regex = r'key=(.*?)&'
+        key = re.findall(regex, response.headers['Location'])
+        new_url = f'https://cometlms.medcast.com.au//auth//userkey//login.php?key={key}&wantsurl=https://www.acpsem.org.au/ccms.r?PageId=35&tenid=ACPSEM'
+        resp = s.get(new_url)
+        if resp.status_code != 200 or resp.url != 'https://www.acpsem.org.au/ccms.r?PageId=35':
+            msg_box = QMessageBox()
+            msg_box.setWindowTitle('Error')
+            msg_box.setText("There was an error logging in to COMET. Are you sure you have the right username set?")
+            msg_box.setIcon(QMessageBox.Critical)
+            msg_box.exec()
+            return None
+    except:
+        msg_box = QMessageBox()
+        msg_box.setWindowTitle('Error')
+        msg_box.setText("There was an error connecting to COMET. Are you sure you have an internet connection?")
+        msg_box.setIcon(QMessageBox.Critical)
+        msg_box.exec()
+        return None
+    return s
 
 
 # Main application loop

@@ -28,7 +28,7 @@ from ui.teap_report_main import Ui_MainWindow
 
 plt.rcParams["hatch.linewidth"] = 2
 
-__version__ = '0.0.8'
+__version__ = '0.0.9'
 name = "ROMP TEAPTracker"
 
 register_matplotlib_converters()

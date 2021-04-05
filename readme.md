@@ -1,4 +1,4 @@
-ROMP TEAPTracker 0.0.8
+ROMP TEAPTracker 0.0.9
 =================
 
 A program to interface with COMET to allow easier tracking of ROMP TEAP progress. I've only tested under Linux and Windows, but macOS should work aswell. If you don't want to run the python script itself, Windows [binary releases](https://github.com/keithoffer/TeapTracker/releases) are available through github.

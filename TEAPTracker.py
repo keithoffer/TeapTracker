@@ -50,7 +50,7 @@ competency_reference_data = {
     '5': {'complete_colour': '#8064a2', 'incomplete_colour': '#e5dfec', 'total_points': 80},
     '6': {'complete_colour': '#c0504d', 'incomplete_colour': '#f2dbdb', 'total_points': 35},
     '7': {'complete_colour': '#4f81bd', 'incomplete_colour': '#dbe5f1', 'total_points': 15},
-    '8': {'complete_colour': '#ffff00', 'incomplete_colour': '#ffffcc', 'total_points': 25}
+    '8': {'complete_colour': '#f6dd4e', 'incomplete_colour': '#ffffcc', 'total_points': 25}
 }
 
 cache_location = 'cached_data'

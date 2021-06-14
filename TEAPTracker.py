@@ -433,6 +433,8 @@ class MainWindow(QMainWindow):
         self.tracking_df = self.generate_tracking_data(self.data)
 
         if self.tracking_df is not None:
+            self.ui.comboBoxGradingFilter.clear()
+            self.ui.comboBoxSubmissionFilter.clear()
             self.ui.comboBoxGradingFilter.addItems(['All'] + list(self.tracking_df['grading_status'].unique()))
             self.ui.comboBoxSubmissionFilter.addItems(['All'] + list(self.tracking_df['submission_status'].unique()))
 

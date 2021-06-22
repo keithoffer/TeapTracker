@@ -176,7 +176,7 @@ class GetDataFromCometThread(QThread):
                         competency['submission_status'] = 'Submitted'
 
                     competency['assessor'] = assessor
-                except IndexError:
+                except:
                     competency['grade_date'] = None
                     competency['assessor'] = None
 

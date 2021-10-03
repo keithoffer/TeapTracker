@@ -514,8 +514,8 @@ class MainWindow(QMainWindow):
         tracking_df.loc[mask, 'weight'] = tracking_df[mask]['weight'] * 0.5
         mask = (tracking_df['name'].str[4] == '3') & (~tracking_df['name'].str[0].isin(('1', '7', '8')))
         tracking_df.loc[mask, 'weight'] = tracking_df[mask]['weight'] * 0.3
-        mask = tracking_df['name'].str[0:5] == '1.1.1'
 
+        mask = tracking_df['name'].str[0:5] == '1.1.1'
         tracking_df.loc[mask, 'weight'] = tracking_df[mask]['weight'] * 0.8
         mask = tracking_df['name'].str[0:5] == '1.1.2'
         tracking_df.loc[mask, 'weight'] = tracking_df[mask]['weight'] * 0.2
